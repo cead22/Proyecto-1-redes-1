@@ -1,0 +1,37 @@
+/*
+ * Javier Abellán. 26 de Marzo de 2003
+ *
+ * Programa de demo de la función popen()
+ */
+#include <stdio.h>
+
+main()
+{
+	/* Fichero con el que abriremos /bin/ls */
+	FILE *fichero=NULL;
+
+	/* Variable auxiliar para leer el fichero */
+	char aux[1000];
+
+   /* Se abre el fichero /bin/ls, pasándole el parámetro -l y se comprueba
+    * que se ha podido abrir correctamente */
+	fichero = popen ("/bin/ls -l", "r");
+	if (fichero == NULL)
+	{
+		perror ("No se puede abrir /bin/ls");
+		exit (-1);
+	}
+
+	/* Se lee la primera linea y se hace un bucle, hasta fin de fichero,
+	 * para ir sacando por pantalla los resultados.
+	 */
+	fgets (aux, 1000, fichero);
+	while (!feof (fichero))
+	{
+		printf ("%s", aux);
+		fgets (aux, 1000, fichero);
+	}
+
+	/* Se cierra el fichero */
+	pclose (fichero);
+}
