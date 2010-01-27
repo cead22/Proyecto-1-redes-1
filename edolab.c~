@@ -44,6 +44,7 @@ int main(int argc, char *argv[]) {
 
   while(!feof(maquinas)) {
     nodo[i] = leer_linea(maquinas);
+
     if (strcmp(nodo[i],"\0") == 0) break;
 
     if ((he = gethostbyname(nodo[i])) == NULL){       
@@ -73,6 +74,8 @@ int main(int argc, char *argv[]) {
     system("ps -e | grep remote");
 
     numbytes = 1;
+    printf("Numero de equipos registrados: %d \n",strlen(nodo));
+    
     while (1){
       if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) == -1){  
 	/* llamada a recv() */

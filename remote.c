@@ -49,7 +49,7 @@ int main(int argc, char *argv[]){
   server.sin_addr.s_addr = INADDR_ANY; 
 
   bzero(&(server.sin_zero),8); 
-  /* escribimos ceros en el reto de la estructura */
+  /* escribimos ceros en el resto de la estructura */
 
    
   /* A continuacion la llamada a bind() */

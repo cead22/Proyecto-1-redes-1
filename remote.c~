@@ -49,7 +49,7 @@ int main(int argc, char *argv[]){
   server.sin_addr.s_addr = INADDR_ANY; 
 
   bzero(&(server.sin_zero),8); 
-  /* escribimos ceros en el reto de la estructura */
+  /* escribimos ceros en el resto de la estructura */
 
    
   /* A continuacion la llamada a bind() */
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]){
   }
 
   sin_size=sizeof(struct sockaddr_in);
-  /* A continuaciï¿½n la llamada a accept() */
+  /* A continuacion la llamada a accept() */
   if ((fd2 = accept(fd,(struct sockaddr *)&client,&sin_size)) == -1){
     printf("error en accept()\n");
     exit(-1);
@@ -89,6 +89,7 @@ int main(int argc, char *argv[]){
       s = leer_linea(salida);
       send(fd2,strcat(s,"\n"),strlen(s)+1,0);
     }
+    printf("archivos %d", strlen(s));
   }
   fclose(comandos);
 
