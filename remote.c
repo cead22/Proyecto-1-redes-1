@@ -89,6 +89,7 @@ int main(int argc, char *argv[]){
       s = leer_linea(salida);
       send(fd2,strcat(s,"\n"),strlen(s)+1,0);
     }
+    pclose(cmd);
   }
   fclose(comandos);
 

@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include "funciones.h"        
       
 /* netbd.h es necesitada por la estructura hostent ;-) */
@@ -35,12 +36,6 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
-  // redireccion de la salida estandar
-  //if (dup2("Reporte",1) < 0){
-  //printf("error al redireccionar la salida");
-  /// exit(-1);
-  //}
-
   if ((maquinas = fopen(argv[1], "r")) == NULL) {
     perror("Error al abrir archivo");
     exit(-1);
@@ -58,6 +53,7 @@ int main(int argc, char *argv[]) {
   
   i--;
   equipos--;
+
   printf("Numero de equipos registrados es: %d\n",equipos);
  
   while(i >= 0) {
@@ -66,7 +62,7 @@ int main(int argc, char *argv[]) {
       printf("gethostbyname() error\n");
       exit(-1);
     }
-    
+   
     if ((fd=socket(AF_INET,SOCK_STREAM,0)) == -1){  
       /* llamada a socket() */
       printf("socket() error\n");
@@ -76,15 +72,26 @@ int main(int argc, char *argv[]) {
     server.sin_family = AF_INET;
     server.sin_port = htons(PORT); 
     server.sin_addr = *((struct in_addr *)he->h_addr);  
+    //server.sin_addr.s_addr = htonl(INADDR_ANY);
     bzero(&(server.sin_zero),8);
+
+    printf("Equido %d\n",equipos-i);
+
+    printf("Nombre %s\n",he->h_name);
+    
+    printf("Ip %s \n",inet_ntoa(*((struct in_addr *)he->h_addr)));
+
+
+
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
       /* llamada a connect() */
-      //printf("nodo %s\n",nodo[i]);
-      printf("connect() error\n");
-      exit(-1);
+      printf("La conexion de la red al equippo esta: no operativa\n");
+      exit(0);
     }
+
     
-    printf("Equido %d\n",equipos-i);
+    printf("La conexion de la red al equippo esta: operativa\n");
+
     char nsl[50] = "nslookup ";
     system(strcat(nsl,nodo[i]));
     system("ps -e | grep remote");
