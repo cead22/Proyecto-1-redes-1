@@ -14,6 +14,7 @@
 
 /* El puerto que sera abierto */
 #define BACKLOG 2 /* El numero de conexiones permitidas */
+#define MAXDATASIZE 100 
 
 int main(int argc, char *argv[]){
 
@@ -27,7 +28,7 @@ int main(int argc, char *argv[]){
   struct sockaddr_in client; 
   /* para la informacion de la direccion del cliente */
 
-  int sin_size;
+  int sin_size, numbytes;
 
   FILE * comandos;
 
@@ -36,6 +37,9 @@ int main(int argc, char *argv[]){
   pid_t pid;
 
   FILE * salida;
+
+  char buf[MAXDATASIZE];
+  char out[MAXDATASIZE];
 
   /* A continuacion la llamada a socket() */
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1){  
@@ -70,28 +74,30 @@ int main(int argc, char *argv[]){
     exit(-1);
   }
 
-  // redireccion de la salida estandar
-  /*if (dup2(fd2,1) < 0){
-    printf("error al redireccionar la salida");
-    exit(-1);
-    }*/
-
-  if ((comandos = fopen(argv[2],"r")) == NULL){
-    printf("Error al abrir archivo de comandos");
-    exit(-1);
-  }
-
-  while(!feof(comandos)){
-    cmd = leer_linea(comandos);
-    if (strcmp(cmd,"\0") == 0) break;
-    salida = popen(cmd,"r");
-    while (!feof(salida)){
-      s = leer_linea(salida);
-      send(fd2,strcat(s,"\n"),strlen(s)+1,0);
+  while(1){
+    if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
+      /* llamada a recv() */
+      printf("Error en recv() \n");
+      exit(-1);
     }
-    pclose(cmd);
-  }
-  fclose(comandos);
+   if (strcmp(buf,"fin") == 0){
+      printf("saliendo\n");
+      break;
+    }
 
+    buf[numbytes] = '\0';
+    
+    if (strcmp(buf,"\0") == 0) break;
+    if (permitido(&buf,argv[2]) == 0) break; //no permitido 
+    salida = popen(&buf,"r");
+
+    while (!feof(salida)){
+      fscanf(salida,"%[^\n]%*[\n]", out);
+      printf("a: %s\n",out);
+      send(fd2,strcat(out,"\n"),strlen(out)+1,0);
+    }
+    send(fd2,"fin",4,0);
+    pclose(salida);
+  }
   close(fd2); /* cierra fd2 */
 }

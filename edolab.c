@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include "funciones.h"        
       
 /* netbd.h es necesitada por la estructura hostent ;-) */
@@ -30,7 +31,7 @@ int main(int argc, char *argv[]) {
   struct hostent *he;         
  
   struct sockaddr_in server;  
-    
+
   if (argc != 3) {
     printf("Uso: %s <Direccion IP>\n puerto",argv[0]);
     exit(-1);
@@ -72,30 +73,26 @@ int main(int argc, char *argv[]) {
     server.sin_family = AF_INET;
     server.sin_port = htons(PORT); 
     server.sin_addr = *((struct in_addr *)he->h_addr);  
-    //server.sin_addr.s_addr = htonl(INADDR_ANY);
     bzero(&(server.sin_zero),8);
 
-    printf("Equido %d\n",equipos-i);
+    printf("Equido: %d\n",equipos-i);
 
-    printf("Nombre %s\n",he->h_name);
+    printf("Nombre: %s",he->h_name);
     
-    printf("Ip %s \n",inet_ntoa(*((struct in_addr *)he->h_addr)));
-
-
+    printf("\tIp: %s \n",inet_ntoa(*((struct in_addr *)he->h_addr)));
 
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
       /* llamada a connect() */
-      printf("La conexion de la red al equippo esta: no operativa\n");
+      printf("La conexion de la red al equipo esta: no operativa %d\n",errno);
       exit(0);
     }
 
-    
     printf("La conexion de la red al equippo esta: operativa\n");
 
     char nsl[50] = "nslookup ";
-    system(strcat(nsl,nodo[i]));
-    system("ps -e | grep remote");
     
+    send(fd,"uptime | grep user",strlen("uptime | grep user"),0);
+      
     numbytes = 1;
     
     while (1){
@@ -105,7 +102,11 @@ int main(int argc, char *argv[]) {
 	exit(-1);
       }
       if (numbytes == 0) break;
-      //printf("numbytes %d:\n",numbytes);
+      if (strcmp(buf,"fin") == 0){
+       printf("saliendo22\n");
+       send(fd,"fin",4,0);
+       break;
+      }
       
       buf[numbytes]='\0';
       
