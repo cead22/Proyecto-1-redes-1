@@ -3,18 +3,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include "funciones.h"        
       
-/* netbd.h es necesitada por la estructura hostent ;-) */
-
-/* El Puerto Abierto del nodo remoto */
 
 #define MAXDATASIZE 100 
 #define MAXMAQUINAS 25
-/* El nï¿½mero mï¿½ximo de datos en bytes */
-
 
 
 int main(int argc, char *argv[]) {
@@ -33,13 +29,13 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in server;  
 
   if (argc != 3) {
-    printf("Uso: %s <Direccion IP>\n puerto",argv[0]);
-    exit(-1);
+    printf("Uso: %s archivo puerto",argv[0]);
+    exit(EXIT_FAILURE);
   }
 
   if ((maquinas = fopen(argv[1], "r")) == NULL) {
-    perror("Error al abrir archivo");
-    exit(-1);
+    printf("Error al abrir archivo %s", argv[1]);
+    exit(EXIT_FAILURE);
   }
   
   i = 0;
@@ -48,26 +44,24 @@ int main(int argc, char *argv[]) {
   while(!feof(maquinas)) {
     nodo[i] = leer_linea(maquinas);
     if (strcmp(nodo[i],"\0") == 0) break;
-    i++;
     equipos++;
+	i++;
   }
   
   i--;
   equipos--;
-
-  printf("Numero de equipos registrados es: %d\n",equipos);
- 
+  
+  printf("Numero de equipos registrados es: %d\n", equipos);
+  
   while(i >= 0) {
-    
     if ((he = gethostbyname(nodo[i])) == NULL){       
-      printf("gethostbyname() error\n");
-      exit(-1);
+      perror("Nombre de servidor desconocido");
+      exit(EXIT_FAILURE);
     }
    
     if ((fd=socket(AF_INET,SOCK_STREAM,0)) == -1){  
-      /* llamada a socket() */
-      printf("socket() error\n");
-      exit(-1);
+      printf("Error en la creacion del socket: %s", strerror(errno));
+      exit(EXIT_FAILURE);
     }
     
     server.sin_family = AF_INET;
@@ -83,8 +77,8 @@ int main(int argc, char *argv[]) {
 
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
       /* llamada a connect() */
-      printf("La conexion de la red al equipo esta: no operativa %d\n",errno);
-      exit(0);
+      printf("La conexion de la red al equipo esta: no operativa %d\n",strerror(errno));
+      exit(EXIT_FAILURE);
     }
 
     printf("La conexion de la red al equippo esta: operativa\n");
@@ -98,8 +92,8 @@ int main(int argc, char *argv[]) {
     while (1){
       if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) == -1){  
 	/* llamada a recv() */
-	printf("Error en recv() \n");
-	exit(-1);
+	printf("Error en la funcion recv: %s \n", strerror(errno));
+	exit(EXIT_FAILURE);
       }
       if (numbytes == 0) break;
       if (strcmp(buf,"fin") == 0){
@@ -107,9 +101,7 @@ int main(int argc, char *argv[]) {
        send(fd,"fin",4,0);
        break;
       }
-      
       buf[numbytes]='\0';
-      
       printf("%s",buf); 
       /* muestra el mensaje de bienvenida del servidor =) */
     }
@@ -117,6 +109,7 @@ int main(int argc, char *argv[]) {
     
     close(fd);
   }   /* cerramos fd =) */
+  exit(EXIT_SUCCESS);
 }
 
 /// CERRAR MAQUINAS FCLOSE

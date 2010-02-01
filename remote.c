@@ -7,12 +7,12 @@
 */
 
 #include <stdio.h>          
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "funciones.h" 
 
-/* El puerto que sera abierto */
 #define BACKLOG 2 /* El numero de conexiones permitidas */
 #define MAXDATASIZE 100 
 
@@ -43,8 +43,8 @@ int main(int argc, char *argv[]){
 
   /* A continuacion la llamada a socket() */
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1){  
-    printf("error en socket()\n");
-    exit(-1);
+    printf("Error en la funcion socket \n");
+    exit(EXIT_FAILURE);
   }
   server.sin_family = AF_INET;         
 
@@ -58,27 +58,27 @@ int main(int argc, char *argv[]){
    
   /* A continuacion la llamada a bind() */
   if(bind(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1) {
-    printf("error en bind() \n");
-    exit(-1);
+    printf("Error en la funcion bind.\n");
+    exit(EXIT_FAILURE);
   }    
 
   if(listen(fd,BACKLOG) == -1) {  /* llamada a listen() */
-    printf("error en listen()\n");
-    exit(-1);
+    printf("Error en la funcion listen.\n");
+    exit(EXIT_FAILURE);
   }
 
   sin_size=sizeof(struct sockaddr_in);
   /* A continuacion la llamada a accept() */
   if ((fd2 = accept(fd,(struct sockaddr *)&client,&sin_size)) == -1){
-    printf("error en accept()\n");
-    exit(-1);
+    printf("Error en la funcion accept().\n");
+    exit(EXIT_FAILURE);
   }
 
   while(1){
     if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
       /* llamada a recv() */
-      printf("Error en recv() \n");
-      exit(-1);
+      printf("Error en la funcion recv.\n");
+      exit(EXIT_FAILURE);
     }
    if (strcmp(buf,"fin") == 0){
       printf("saliendo\n");
@@ -100,4 +100,6 @@ int main(int argc, char *argv[]){
     pclose(salida);
   }
   close(fd2); /* cierra fd2 */
+  exit(EXIT_SUCCESS);
+
 }
