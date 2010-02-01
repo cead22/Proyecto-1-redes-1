@@ -8,44 +8,61 @@
 #include <errno.h>
 #include "funciones.h"        
       
-
-#define MAXDATASIZE 100 
-#define MAXMAQUINAS 25
-
+#define MAXDATASIZE 100
+#define MAXMAQUINAS 50
 
 int main(int argc, char *argv[]) {
 
-  int fd, numbytes, i;
-  int PORT = (int)atoi(argv[2]); 
- 
+  /* Variables */
+  int fd;
+  int numbytes;
+  int i;
+  int k;
+  int equipos;
+  int PORT;
   FILE *maquinas;
-  
+  char *maq;
   char *nodo[MAXMAQUINAS];
- 
+  char *comandos[] = {"uptime",
+		      "grep MemTotal /proc/meminfo",
+		      "ls -d"};
   char buf[MAXDATASIZE];  
- 
   struct hostent *he;         
- 
-  struct sockaddr_in server;  
+  struct sockaddr_in server;
 
-  if (argc != 3) {
-    printf("Uso: %s archivo puerto",argv[0]);
+  /* Revision de llamada */
+  if (argc != 5) {
+    printf("Uso: ./edolab -f <maquinas> -p <puertoRemote>");
     exit(EXIT_FAILURE);
   }
 
-  if ((maquinas = fopen(argv[1], "r")) == NULL) {
-    printf("Error al abrir archivo %s", argv[1]);
+  if (strcmp(argv[1],"-f") == 0 && strcmp(argv[3],"-p") == 0) {
+    PORT = (int)atoi(argv[4]);
+    maq = argv[2];
+  }
+  else if (strcmp(argv[1],"-p") == 0 && strcmp(argv[3],"-f") == 0) {
+    PORT = (int)atoi(argv[2]);
+    maq = argv[4];
+  }
+  else {
+    printf("Uso: edolab -f <maquinas> -p <puertoRemote>");
+    exit(EXIT_FAILURE);
+  }
+
+  
+  if ((maquinas = fopen(maq, "r")) == NULL) {
+    printf("Error al abrir archivo %s", maq);
     exit(EXIT_FAILURE);
   }
   
   i = 0;
-  int equipos = 1;
+  equipos = 1;
 
   while(!feof(maquinas)) {
     nodo[i] = leer_linea(maquinas);
     if (strcmp(nodo[i],"\0") == 0) break;
     equipos++;
-	i++;
+    i++;
   }
   
   i--;
@@ -77,38 +94,39 @@ int main(int argc, char *argv[]) {
 
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
       /* llamada a connect() */
-      printf("La conexion de la red al equipo esta: no operativa %d\n",strerror(errno));
-      exit(EXIT_FAILURE);
+      printf("La conexion de la red al equipo esta: no operativa\n");
+      i--;
+      continue;
     }
 
-    printf("La conexion de la red al equippo esta: operativa\n");
+    printf("La conexion de la red al equipo esta: operativa\n");
 
-    char nsl[50] = "nslookup ";
-    
-    send(fd,"uptime | grep user",strlen("uptime | grep user"),0);
-      
-    numbytes = 1;
-    
-    while (1){
-      if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) == -1){  
-	/* llamada a recv() */
-	printf("Error en la funcion recv: %s \n", strerror(errno));
-	exit(EXIT_FAILURE);
+    for (k = 0; k < 3; k++){
+      numbytes = 1;
+      printf("c: %s\n", comandos[k]);
+      send(fd,comandos[k],strlen(comandos[k]),0);
+      while ((numbytes = recv(fd,buf,MAXDATASIZE,0)) >= 0){
+	//if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) == -1){  
+	//  printf("Error en la funcion recv: %s \n", strerror(errno));
+	//  exit(EXIT_FAILURE);
+	//	}
+	if (numbytes == 0) break;
+	buf[numbytes]='\0';
+	printf("+ buf %s +\n",buf);
+	if (strcmp(buf,"fin_c") == 0) {
+	  //send(fd,"fin",4,0);
+	  //printf("FIN\n");
+	  break;
+	}
+	printf("- %s", buf); 
       }
-      if (numbytes == 0) break;
-      if (strcmp(buf,"fin") == 0){
-       printf("saliendo22\n");
-       send(fd,"fin",4,0);
-       break;
-      }
-      buf[numbytes]='\0';
-      printf("%s",buf); 
-      /* muestra el mensaje de bienvenida del servidor =) */
     }
+    send(fd,"salir",5,0);
+
+
     i--;
-    
-    close(fd);
-  }   /* cerramos fd =) */
+    //close(fd);
+  }
   exit(EXIT_SUCCESS);
 }
 

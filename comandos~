@@ -1,3 +1,4 @@
 grep "model name" /proc/cpuinfo
 grep MemTotal /proc/meminfo
 uptime
+ps

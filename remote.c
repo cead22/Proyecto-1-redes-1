@@ -13,48 +13,57 @@
 #include <netinet/in.h>
 #include "funciones.h" 
 
-#define BACKLOG 2 /* El numero de conexiones permitidas */
+#define MAXCON 5 /* El numero de conexiones permitidas */
 #define MAXDATASIZE 100 
 
 int main(int argc, char *argv[]){
 
-  int PORT = (int)atoi(argv[1]);
-
-  int fd, fd2, estado; /* los ficheros descriptores */
-
+  /* Variables */
+  int PORT;
+  int fd;
+  int fd2;
+  int estado;
+  int sin_size;
+  int numbytes;
   struct sockaddr_in server;	 
-  /* para la informacion de la direccion del servidor */
-
   struct sockaddr_in client; 
-  /* para la informacion de la direccion del cliente */
-
-  int sin_size, numbytes;
-
-  FILE * comandos;
-
-  char * cmd, * s;
-
-  pid_t pid;
-
-  FILE * salida;
-
+  FILE *comandos;
+  FILE *salida;
+  char *cmd;
+  char *s;
+  char *com;
   char buf[MAXDATASIZE];
   char out[MAXDATASIZE];
+  pid_t pid;
 
-  /* A continuacion la llamada a socket() */
+  /* Revision de llamada */
+  if (argc != 5) {
+    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>");
+    exit(EXIT_FAILURE);
+  }
+
+  if (strcmp(argv[1],"-p") == 0 && strcmp(argv[3],"-f") == 0) {
+    PORT = (int)atoi(argv[2]);
+    com = argv[4];
+  }
+  else if (strcmp(argv[1],"-f") == 0 && strcmp(argv[3],"-p") == 0) {
+    PORT = (int)atoi(argv[4]);
+    com = argv[2];
+  }
+  else {
+    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>");
+    exit(EXIT_FAILURE);
+  }
+
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1){  
     printf("Error en la funcion socket \n");
     exit(EXIT_FAILURE);
   }
+
   server.sin_family = AF_INET;         
-
   server.sin_port = htons(PORT); 
-
   server.sin_addr.s_addr = INADDR_ANY; 
-
   bzero(&(server.sin_zero),8); 
-  /* escribimos ceros en el resto de la estructura */
-
    
   /* A continuacion la llamada a bind() */
   if(bind(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1) {
@@ -62,44 +71,57 @@ int main(int argc, char *argv[]){
     exit(EXIT_FAILURE);
   }    
 
-  if(listen(fd,BACKLOG) == -1) {  /* llamada a listen() */
+  if(listen(fd,MAXCON) == -1) {
     printf("Error en la funcion listen.\n");
     exit(EXIT_FAILURE);
   }
 
   sin_size=sizeof(struct sockaddr_in);
-  /* A continuacion la llamada a accept() */
-  if ((fd2 = accept(fd,(struct sockaddr *)&client,&sin_size)) == -1){
-    printf("Error en la funcion accept().\n");
-    exit(EXIT_FAILURE);
-  }
 
   while(1){
-    if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
-      /* llamada a recv() */
-      printf("Error en la funcion recv.\n");
+    if ((fd2 = accept(fd,(struct sockaddr *)&client,&sin_size)) == -1){
+      printf("Error en la funcion accept().\n");
       exit(EXIT_FAILURE);
     }
-   if (strcmp(buf,"fin") == 0){
-      printf("saliendo\n");
-      break;
-    }
-
-    buf[numbytes] = '\0';
     
-    if (strcmp(buf,"\0") == 0) break;
-    if (permitido(&buf,argv[2]) == 0) break; //no permitido 
-    salida = popen(&buf,"r");
-
-    while (!feof(salida)){
-      fscanf(salida,"%[^\n]%*[\n]", out);
-      printf("a: %s\n",out);
-      send(fd2,strcat(out,"\n"),strlen(out)+1,0);
+    if ((pid = fork()) < 0) {
+      printf("Error fork()");
+      exit(EXIT_FAILURE);
     }
-    send(fd2,"fin",4,0);
-    pclose(salida);
-  }
-  close(fd2); /* cierra fd2 */
-  exit(EXIT_SUCCESS);
-
+    if (pid == 0) {
+      /* proceso hijo */
+      while(1){
+ 	if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
+	  printf("Error en la funcion recv.\n");
+	  exit(EXIT_FAILURE);
+	}
+	
+	buf[numbytes] = '\0';
+	if (strcmp(buf,"salir") == 0) break;
+	if (strcmp(buf,"\0") == 0) break;
+	
+	if (permitido(&buf,com) == 0){
+	  //continue;// break; //no permitido 
+	  send(fd2,"fin_c",5,0);
+	}
+	
+	salida = popen(&buf,"r");
+	while (!feof(salida)){
+	  fscanf(salida,"%[^\n]%*[\n]", out);
+	  send(fd2,strcat(out,"\n"),strlen(out)+1,0);
+	}
+	pclose(salida);
+	shutdown(fd2,1);
+	//send(fd2,"fin_c",5,0);
+      }
+      exit(EXIT_SUCCESS);
+    }
+    else {
+      /* proceso padre */
+      wait(&estado);
+      int g;for(g=1;g<1000;g++);
+      //printf("cc");
+      //close(fd);
+    }
+  } 
 }
