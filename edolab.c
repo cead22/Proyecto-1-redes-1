@@ -8,7 +8,7 @@
 #include <errno.h>
 #include "funciones.h"        
       
-#define MAXDATASIZE 100
+#define MAXDATASIZE 600
 #define MAXMAQUINAS 50
 
 int main(int argc, char *argv[]) {
@@ -25,10 +25,12 @@ int main(int argc, char *argv[]) {
   char *nodo[MAXMAQUINAS];
   char *comandos[] = {"uptime",
 		      "grep MemTotal /proc/meminfo",
-		      "ls -d"};
+		      "grep \"model name\" /proc/cpuinfo"};
   char buf[MAXDATASIZE];  
   struct hostent *he;         
   struct sockaddr_in server;
+  struct timeval tv;
+  fd_set rfds;
 
   /* Revision de llamada */
   if (argc != 5) {
@@ -94,38 +96,60 @@ int main(int argc, char *argv[]) {
 
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
       /* llamada a connect() */
-      printf("La conexion de la red al equipo esta: no operativa\n");
+      printf("No se pudo establecer comunicacion con remote.\n");
       i--;
       continue;
     }
 
-    printf("La conexion de la red al equipo esta: operativa\n");
-
-    for (k = 0; k < 3; k++){
-      numbytes = 1;
-      printf("c: %s\n", comandos[k]);
-      send(fd,comandos[k],strlen(comandos[k]),0);
-      while ((numbytes = recv(fd,buf,MAXDATASIZE,0)) >= 0){
-	//if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) == -1){  
-	//  printf("Error en la funcion recv: %s \n", strerror(errno));
-	//  exit(EXIT_FAILURE);
-	//	}
-	if (numbytes == 0) break;
-	buf[numbytes]='\0';
-	printf("+ buf %s +\n",buf);
-	if (strcmp(buf,"fin_c") == 0) {
-	  //send(fd,"fin",4,0);
-	  //printf("FIN\n");
-	  break;
-	}
-	printf("- %s", buf); 
-      }
+    FD_ZERO(&rfds);
+    FD_SET(fd,&rfds);
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+    int c;
+    c = select(FD_SETSIZE, &rfds, (fd_set *)NULL, (fd_set *)NULL, &tv);
+    if (c == -1) {
+      printf("Error select\n");
+      exit(EXIT_FAILURE);
     }
-    send(fd,"salir",5,0);
+    
+    if (c == 0) {
+      printf("No se pudo establecer comunicacion con remote\n");
+      i--;
+      continue;
+    }
 
+    else {
 
-    i--;
-    //close(fd);
+      if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) != 6 || strcmp(buf,"remote") != 0) {
+	printf("No se pudo establecer comunicacion con remote.\n");
+	i--;
+	continue;
+      }
+      
+      //printf("La conexion de la red al equipo esta: operativa\n");
+      
+      for (k = 0; k < 3; k++){
+	numbytes = 1;
+	send(fd,comandos[k],strlen(comandos[k]),0);
+	while ((numbytes = recv(fd,buf,MAXDATASIZE,0)) >= 0){
+	  if (numbytes == 0) break;
+	  buf[numbytes]='\0';
+	  //printf("+ buf %s +\n",buf);
+	  if (strcmp(buf,"fin_c") == 0) {
+	    //send(fd,"fin",4,0);
+	    //printf("FIN\n");
+	    break;
+	  }
+	  printf("%s", buf); 
+	}
+      }
+      printf("El servidor remote del equipo esta: operativo.\n");
+      send(fd,"salir",5,0);
+      
+      
+      i--;
+      //close(fd);
+    }
   }
   exit(EXIT_SUCCESS);
 }

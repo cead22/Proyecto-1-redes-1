@@ -90,6 +90,7 @@ int main(int argc, char *argv[]){
     }
     if (pid == 0) {
       /* proceso hijo */
+      send(fd2,"remote",6,0);
       while(1){
  	if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
 	  printf("Error en la funcion recv.\n");
@@ -106,20 +107,20 @@ int main(int argc, char *argv[]){
 	}
 	
 	salida = popen(&buf,"r");
-	while (!feof(salida)){
+	//while (!feof(salida)){
 	  fscanf(salida,"%[^\n]%*[\n]", out);
 	  send(fd2,strcat(out,"\n"),strlen(out)+1,0);
-	}
+	  //}
 	pclose(salida);
-	shutdown(fd2,1);
-	//send(fd2,"fin_c",5,0);
+	//shutdown(fd2,1);
+	
+	send(fd2,"fin_c",5,0);
       }
       exit(EXIT_SUCCESS);
     }
     else {
       /* proceso padre */
       wait(&estado);
-      int g;for(g=1;g<1000;g++);
       //printf("cc");
       //close(fd);
     }
