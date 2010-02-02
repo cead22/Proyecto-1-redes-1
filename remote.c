@@ -12,11 +12,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "funciones.h" 
+#include <string.h> 
 
-#define MAXCON 5 /* El numero de conexiones permitidas */
-#define MAXDATASIZE 100 
+#define MAXCON 5 /* numero de conexiones permitidad */
+#define MAXDATASIZE 100
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]) {
 
   /* Variables */
   int PORT;
@@ -101,19 +102,15 @@ int main(int argc, char *argv[]){
 	if (strcmp(buf,"salir") == 0) break;
 	if (strcmp(buf,"\0") == 0) break;
 	
-	if (permitido(&buf,com) == 0){
-	  //continue;// break; //no permitido 
+	/* Se verifica que el comando esta permitido */
+	if (permitido((char *)&buf,com) == 0){
 	  send(fd2,"fin_c",5,0);
 	}
 	
-	salida = popen(&buf,"r");
-	//while (!feof(salida)){
-	  fscanf(salida,"%[^\n]%*[\n]", out);
-	  send(fd2,strcat(out,"\n"),strlen(out)+1,0);
-	  //}
+	salida = popen((char *)&buf,"r");
+	fscanf(salida,"%[^\n]%*[\n]", out);
+	send(fd2,strcat(out,"\n"),strlen(out)+1,0);
 	pclose(salida);
-	//shutdown(fd2,1);
-	
 	send(fd2,"fin_c",5,0);
       }
       exit(EXIT_SUCCESS);
@@ -121,8 +118,6 @@ int main(int argc, char *argv[]){
     else {
       /* proceso padre */
       wait(&estado);
-      //printf("cc");
-      //close(fd);
     }
   } 
 }
