@@ -56,11 +56,13 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
+  /* Se crea el socket */
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1){  
     printf("Error en la funcion socket \n");
     exit(EXIT_FAILURE);
   }
 
+  /* Se establecen los atributos del socket */
   server.sin_family = AF_INET;         
   server.sin_port = htons(PORT); 
   server.sin_addr.s_addr = INADDR_ANY; 
@@ -72,6 +74,7 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }    
 
+  /* Se establece la cantidad de maquinas a aceptar*/
   if(listen(fd,MAXCON) == -1) {
     printf("Error en la funcion listen.\n");
     exit(EXIT_FAILURE);

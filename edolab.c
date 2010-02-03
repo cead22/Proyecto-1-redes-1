@@ -24,6 +24,11 @@ int main(int argc, char *argv[]) {
   int equipos;
   int PORT;
   FILE *maquinas;
+  FILE *ping;
+  char conexion[2];
+  char *ip;
+  char sw[5];
+  char *comando_ping = malloc(sizeof(char)*65);
   char *maq;
   char *nodo[MAXMAQUINAS];
   char *comandos[] = {"uptime",
@@ -54,7 +59,7 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  /* Se abre el archivo que indican las maquinas deonde esta el remote*/
+  /* Maquinas donde se ejecutara el remote */
   if ((maquinas = fopen(maq, "r")) == NULL) {
     printf("Error al abrir archivo %s", maq);
     exit(EXIT_FAILURE);
@@ -87,31 +92,50 @@ int main(int argc, char *argv[]) {
       printf("Error en la creacion del socket: %s", strerror(errno));
       exit(EXIT_FAILURE);
     }
-    /* SE crea el socket para verificar el servidor web */
-    if ((web=socket(AF_INET,SOCK_STREAM,0)) == -1){
-      printf("Error en la creacion del socket");
-      exit(EXIT_FAILURE);
-    }
-    
+   
     /* Se establecen los atributos para la conexion con el remote */
     server.sin_family = AF_INET;
     server.sin_port = htons(PORT); 
     server.sin_addr = *((struct in_addr *)he->h_addr);  
     bzero(&(server.sin_zero),8);
 
+   
+    /* Se crea el socket para verificar el servidor web */
+    if ((web=socket(AF_INET,SOCK_STREAM,0)) == -1){
+      printf("Error en la creacion del socket");
+      exit(EXIT_FAILURE);
+    }
+    
     /* Se establecen los atributos para la verificacion del servidor web*/
     server_aux.sin_family = AF_INET;
     server_aux.sin_port = htons(PORT_WEB);
     server_aux.sin_addr = *((struct in_addr *) he->h_addr);
     bzero(&(server_aux.sin_zero),8);
 
-   
+    /* Se obtiene ip del servidor */
+    ip = inet_ntoa(*((struct in_addr *)he->h_addr));
 
     printf("Equipo: %d\n",equipos-i);
-
     printf("Nombre: %s",he->h_name);
+    printf("\tIp: %s \n",ip);
+
+    /* Se crea el comando para verificar la conexion a la red del servidor.*/
+    comando_ping = strcat(comando_ping,"ping -w 1 ");
+    comando_ping = strcat(comando_ping,ip);
+    comando_ping = strcat(comando_ping,"| grep received | awk '{print $4}'");
     
-    printf("\tIp: %s \n",inet_ntoa(*((struct in_addr *)he->h_addr)));
+    ping = popen(comando_ping,"r");
+    fscanf(ping,"%[^\n]%", conexion);
+    pclose(ping);
+
+    /* Si la salida obtenida fue 0 se concluye que no hay red dado que esa
+       es la cantidad de paquetes recibidos */
+    if (strcmp(conexion,"0") == 0) {
+      printf("La conexion a la red del equipo esta: no operativa\n");
+      continue;
+    }
+    printf("La conexion a la red del equipo esta: operativa\n", conexion);
+    
 
     /* Se verifica que se haya podido establecer conexion con el remote */
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
@@ -119,7 +143,10 @@ int main(int argc, char *argv[]) {
       i--;
       continue;
     }
-    /* Time out */
+    
+    /* Time out para verificacion de que el puerto esta siendo usado efectivamente 
+       por el remote */
+    
     FD_ZERO(&rfds);
     FD_SET(fd,&rfds);
     tv.tv_sec = 2;
@@ -128,15 +155,17 @@ int main(int argc, char *argv[]) {
       printf("Error select\n");
       exit(EXIT_FAILURE);
     }
-    /* Transcurrio el tiempo de espera, no hizo conexion con el remote */
+
+    /* Transcurrio el tiempo y no se recibio ningun mensaje (Se espera un 
+       mensaje del remote para asegurar que la conexion se hizo con este). */
     if (c == 0) {
       printf("No se pudo establecer comunicacion con remote\n");
       i--;
       continue;
     }
-    /* Se establecio conexion con el remote */
+    /* Se recibio un mensaje */
     else {
-      /* Se verifica que se haya obtenido el mensaje enviado por el remote */
+      /* Se verifica el mensaje obtenido ha sido efectivamente enviado por el remote */
       if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) != 6 || strcmp(buf,"remote") != 0) {
 	printf("No se pudo establecer comunicacion con remote.\n");
 	i--;
@@ -159,21 +188,53 @@ int main(int argc, char *argv[]) {
       }
       printf("El servidor remote del equipo esta: operativo.\n");
       
-      /* Se verifica que si hay servidor web activo */
+      /* Se verifica si hay servidor web activo */
       if (connect(web,(struct sockaddr *)&server_aux, sizeof(struct sockaddr)) == -1) {
-	printf("El servidor web del equipo esta: no operativo\n");
+	printf("El servidor web del equipo esta: no operativo.\n");
       }
       else {
-	printf("El servidor web del equipo esta: operativo.\n");
+	send(web,"GET / HTTP/1.0\r\n\r\n",22,0);
+	FD_ZERO(&rfds);
+	FD_SET(web,&rfds);
+	tv.tv_sec = 2;
+	tv.tv_usec = 0;
+	if ((c = select(FD_SETSIZE, &rfds, (fd_set *)NULL, (fd_set *)NULL, &tv)) == -1){
+	  printf("Error select\n");
+	  exit(EXIT_FAILURE);
+	}
+	/* Transcurrio el tiempo del espera del mensaje a recibir */
+	if (c == 0) {
+	  printf("El servidor web del equipo esta: no operativo. n\n");
+	  i--;
+	  continue;
+	}
+	/* Se recibio un mensaje */
+	else {
+	  /* Se verifica que el mensaje recibido sea del servidor web  */
+	  bzero(&buf,8);
+	  if ((numbytes = recv(web,buf,MAXDATASIZE,0)) == 0){
+	    printf("El servidor web del equipo esta: no operativo. n\n");
+	    i--;
+	    continue;
+	  }
+	 
+	  buf[4] = '\0';
+	  if (strcmp(buf,"HTTP") != 0){
+	    printf("El servidor web del equipo esta: no operativo.\n");
+	  }
+	  else{
+	      printf("El servidor web del equipo esta: operativo.\n");
+	  }
+	}
       }
       send(fd,"salir",5,0);
-      
-      
       i--;
-      //close(fd);
+      close(fd);
     }
   }
+  close(maquinas);
   exit(EXIT_SUCCESS);
 }
 
 /// CERRAR MAQUINAS FCLOSE
+
