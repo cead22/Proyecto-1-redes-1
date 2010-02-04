@@ -35,15 +35,15 @@
     -1 en caso contrario
 
 */
-int permitido(char *comando, char *archivo, int fd) {
+int permitido(char *comando, char *archivo) {
 
   FILE *f;
   char linea[100];
 
   /* se abre el archivo */
   if ((f = fopen(archivo,"r")) == NULL) {
-    //printf("Error al abrir archivo de comandos permitidos\n");
-    return -1;
+    perror("Error al abrir archivo de comandos permitidos\n");
+    exit(-1);
   }
   
   /* se verifica exitencia del comando */
@@ -60,7 +60,7 @@ int permitido(char *comando, char *archivo, int fd) {
   /* comando no permitido */
   if(fclose(f) != 0)
     perror("Error al cerrar archivo de comandos permitidos\n");
-  return 1;
+  return -1;
 }
 
 int main(int argc, char *argv[]) {
@@ -156,16 +156,11 @@ int main(int argc, char *argv[]) {
 	if (strcmp(buf,"\0") == 0) break;
 	
 	/* Se verifica que el comando esta permitido */
-	switch (permitido((char *)&buf,com,fd2)){
-	case 1:
+	if (permitido((char *)&buf,com) == -1){
 	  /* comando no permitido */
 	  if (send(fd2,"fin_c",5,0) == -1)
 	    perror("Error send (2)");
 	  continue;
-	  break;
-	case -1:
-	  //perror("Error al abrir el archivo de comandos");
-	  exit(EXIT_FAILURE);
 	}
 	
 	/* se ejecuta el comando se lee la salida 
