@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
     fscanf(ping,"%[^\n]%*[\n]",conexion);
     pclose(ping);
     conexion[2]='\0';
-    printf("%d\n",strlen(conexion));
+   
     /* Si la salida obtenida fue 0 se concluye que no hay red dado que esa
        es la cantidad de paquetes recibidos */
     if (strcmp(conexion,"64") != 0) {
