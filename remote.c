@@ -1,3 +1,9 @@
+/************************************/
+/*    Proyecto I redes. Sockets     */
+/*    Marion Carambula 06-39312     */
+/*    Carlos Alvarez 06-39141       */
+/************************************/
+
 /*
  remote.c
    servidor que se ejecutara en las maquinas
@@ -37,7 +43,14 @@
 
 */
 
-int permitido(char *comando, char *archivo, int fd) {
+/*********************************************************************************************/
+/* Funcion permitido: Se encarga de verificar que los comandos que el cliente solicita	     */
+/* ejecutar esten establecidos dentro de los que tiene permitidos.                           */
+/* Entrada: - comando que se desea ejercutar										         */
+/*          - archivo donde se almacena los comandos permitidos                              */	
+/* Salida: Valor entero que determina si el comando es o no permitido.						 */
+/*********************************************************************************************/
+int permitido(char *comando, char *archivo) {
 
   FILE *f;
   char linea[100];
@@ -65,10 +78,16 @@ int permitido(char *comando, char *archivo, int fd) {
   return 1;
 }
 
-
-void servidor(char *comans, int PORT){
-
-  int fd;
+/*********************************************************************************************/
+/* Funcion servidor: Se encarga de establecer el servidor en el puerto seleccionado y	     */
+/* recibir las solicitudes de conexion de los diferentes clientes asi como devolverle un     */
+/* mensaje con la informacion solicitada por este.											 */ 							
+/* Entrada: - comando que se desea ejercutar										         */
+/*          - archivo donde se almacena los comandos permitidos                              */	
+/* Salida: Valor entero que retorna -1 en caso de producirse un error.						 */
+/*********************************************************************************************/
+int servidor(char *comans, int PORT){
+  int fd;   
   int fd2;
   int estado;
   int sin_size;
@@ -129,8 +148,10 @@ void servidor(char *comans, int PORT){
     if (pid == 0) {
       /* proceso hijo */
 
-      if (send(fd2,"remote",6,0) == -1)
+      if (send(fd2,"remote",6,0) == -1){
       	perror("Error send (1)");
+	exit(EXIT_FAILURE);
+      }
 
       while(1){
  	if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
@@ -143,7 +164,7 @@ void servidor(char *comans, int PORT){
 	if (strcmp(buf,"\0") == 0) break;
 	
 	/* Se verifica que el comando esta permitido */
-	switch (permitido((char *)&buf,comans,fd2)){
+	switch (permitido((char *)&buf,comans){
 	case 1:
 	  /* comando no permitido */
 	  if (send(fd2,"fin_c",5,0) == -1)
@@ -174,10 +195,12 @@ void servidor(char *comans, int PORT){
   } 
 }
 
+
+/* Rutina principal del proceso servidor*/
 int main(int argc, char *argv[]) {
 
-  int PORT;
-  char *comans;
+  int puerto;    /* Puerto a traves del cual se tratara de hacer la conexion */
+  char *comans;  /* almacena el nombre del archivo que almacena los comandos permitidos */
   
   /* Revision de llamada */
   if (argc != 5) {
@@ -186,18 +209,21 @@ int main(int argc, char *argv[]) {
   }
 
   if (strcmp(argv[1],"-p") == 0 && strcmp(argv[3],"-f") == 0) {
-    PORT = (int)atoi(argv[2]);
+    puerto = (int)atoi(argv[2]);
     comans = argv[4];
   }
   else if (strcmp(argv[1],"-f") == 0 && strcmp(argv[3],"-p") == 0) {
-    PORT = (int)atoi(argv[4]);
+    puerto= (int)atoi(argv[4]);
     comans = argv[2];
   }
   else {
-    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>");
+    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>\n");
     exit(EXIT_FAILURE);
   }
 
-  servidor(comans, PORT);
+  if ((servidor(comans, PORT))== -1){
+	exit(EXIT_FAILURE);
+  }
+  exit(EXIT_SUCCESS);
  
 }

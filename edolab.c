@@ -1,3 +1,9 @@
+/************************************/
+/*    Proyecto I redes. Sockets     */
+/*    Marion Carambula 06-39312     */
+/*    Carlos Alvarez 06-39141       */
+/************************************/
+
 /* 
    edolab.c
      cliente que permitira supervisar varias maquinas 
@@ -37,24 +43,33 @@
 /* puerto de conexion con servidor web */
 #define PUERTO_WEB 80
 
+/*********************************************************************************************/
+/* Funcion verf_conex: Permite conocer el estado de la red del servidor. Para esto se        */
+/* hace uso de la llamada ping a traves de la funcion popen, luego la salida obtenida        */
+/* es devuelta.	         					                                                 */
+/* Entrada: Ip de la maquina que se desea verificar su estado de red.                        */
+/* Salida: Valor entero indicando conexion (1) o no conexion (-1).			                 */
+/*********************************************************************************************/
 int verf_conex(char * ip){
-  char *comando_ping = malloc(sizeof(char)*26); 
+   char *comando_ping = malloc(sizeof(char)*26); 
    char conexion[250]; /* almacena salida del comando ping  */
    FILE *ping;
    
+   /*Se prepara el comando ping con el ip de la maquina*/
    comando_ping[0] = '\0' ;
    comando_ping = strcat(comando_ping,"ping -c 2 ");
    comando_ping = strcat(comando_ping,ip);
-   
+   /* Se hace la llamada  y la salida de guarda en ping */
    ping = popen(comando_ping,"r");
+   /* Se escanea la salida y se almacena el valor deseado en conexion*/
    fscanf(ping,"%[^\n]%*[\n]", conexion);
    conexion[0] = '\0';
    fscanf(ping,"%[^\n]%*[\n]", conexion);
    conexion[8] ='\0';
    pclose(ping);
    
-   /* Si la salida obtenida no fue 64 se concluye que hay red dado que esa
-      es la cantidad de paquetes recibidos */
+   /* Si la salida obtenida no fue 64 bytes se concluye que hay red dado que esa
+      es la cantidad de paquetes recibidos que se espera*/
    if (strcmp(conexion,"64 bytes") != 0) {
      printf("La conexion a la red del equipo esta: no operativa\n");
      return -1;
@@ -64,9 +79,6 @@ int verf_conex(char * ip){
 
 }
 
-
-
-
 /*********************************************************************************************/
 /* Funcion time_out: Permite esperar una respuesta por parte de un servidor	   	     */
 /* con un limite de tiempo, despues de transcurrir ese tiempo el proceso termina.	     */
@@ -74,7 +86,6 @@ int verf_conex(char * ip){
 /* Salida: Valor entero indicando exito (1) o fracaso (-1).				     */
 /*********************************************************************************************/
 int time_out(int fd){
-
   int c;             /* control de la funcion select()       */
   struct timeval tv; /* para poner timeouts en funcion recv() */
   fd_set rfds;
@@ -102,11 +113,11 @@ int time_out(int fd){
 /*********************************************************************************************/
 /* Funcion generar_reporte: Se encarga de establecer la conexion con cada una de las	     */
 /* maquinas especificadas, y obtener informacion sobre estas.                                */
-/* Entrada: Un archivo con todas las maquinas con las que se desea establecer conexion       */
-/*          puerto a traves del cual se pretende hacer la conexion                           */				   
+/* Entrada: - archivo con todas las maquinas con las que se desea establecer conexion        */
+/*          - puerto a traves del cual se pretende hacer la conexion                         */				   
 /* Reporte con las caracteristicas de la maquina 											 */
 /*********************************************************************************************/
-void generar_reporte(FILE * maquinas, int PUERTO){
+int generar_reporte(FILE * maquinas, int PUERTO){
   
   int fd;          /* descriptor de socket servidor remote */
   int web;         /* descriptor de socket servidor web    */
@@ -168,7 +179,7 @@ void generar_reporte(FILE * maquinas, int PUERTO){
     server.sin_addr = *((struct in_addr *)he->h_addr);
     bzero(&(server.sin_zero),8);
 
-   
+ 
     /* Se crea el socket para verificar el servidor web */
     if ((web=socket(AF_INET,SOCK_STREAM,0)) == -1){
       printf("Error en la creacion del socket");
@@ -181,27 +192,21 @@ void generar_reporte(FILE * maquinas, int PUERTO){
     server_aux.sin_addr = *((struct in_addr *) he->h_addr);
     bzero(&(server_aux.sin_zero),8);
 
-    if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
-      /* llamada a connect() */
-      printf("No se pudo establecer comunicacion con remote.\n");
     /* Se obtiene ip del servidor */
     ip = inet_ntoa(*((struct in_addr *)he->h_addr));
-
     printf("Nombre: %s",he->h_name); 
     printf("\tIp: %s \n",ip); 
 
+    if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
+      printf("No se pudo establecer comunicacion con remote.\n");
+      i--;
+      continue;
+    }
     if ((red = verf_conex(ip)) == -1){
       i--;
       continue;
     }
-    
-    /* Se verifica que se haya podido establecer conexion con el remote */
-    if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
-	printf("No se pudo establecer comunicacion con remote.\n");
-      i--;
-      continue;
-    }
-    
+   
     if (time_out(fd) == -1){
       printf("No se pudo establecer comunicacion con el remote. \n");
       i--;
@@ -209,12 +214,10 @@ void generar_reporte(FILE * maquinas, int PUERTO){
     }
     else{
       if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) != 6 || strcmp(buf,"remote") != 0) {
-		printf("buf %s\n",buf);
 		printf("No se pudo establecer comunicacion con remote.\n");
 		i--;
 		continue;
      }    
-	printf("La conexion de la red al equipo esta: operativa\n");
     /* Se envian los comandos a ejecutar al remote */
     for (k = 0; k < 3; k++){
 	 numbytes = 1;
@@ -288,7 +291,8 @@ void generar_reporte(FILE * maquinas, int PUERTO){
   }
   close(maquinas);
 
-}
+  }
+
 
 
 
@@ -314,19 +318,22 @@ int main(int argc, char *argv[]) {
     maq = argv[4];
   }
   else {
-    printf("Uso: edolab -f <maquinas> -p <puertoRemote>");
+    printf("Uso: edolab -f <maquinas> -p <puertoRemote>\n");
     exit(EXIT_FAILURE);
   }
 
   /* Maquinas a supervisar */
   if ((maquinas = fopen(maq, "r")) == NULL) {
-    fprintf(stderr,"Error al abrir archivo %s: %d", maq, errno);
+    fprintf(stderr,"Error al abrir archivo %s: %d\n", maq, errno);
     exit(EXIT_FAILURE);
   }
 
-  generar_reporte(maquinas, puerto);
+  if ((generar_reporte(maquinas, puerto)) == -1) {
+	exit(EXIT_FAILURE);
+  }
+  exit(EXIT_SUCCESS);
+}
 
- }
 
 
 
