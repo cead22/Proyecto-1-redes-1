@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
     
     printf("\tIp: %s \n",inet_ntoa(*((struct in_addr *)he->h_addr)));
 
+
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
       /* llamada a connect() */
       printf("No se pudo establecer comunicacion con remote.\n");
@@ -120,18 +121,19 @@ int main(int argc, char *argv[]) {
 
     else {
 
-      if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) != 6 || strcmp(buf,"remote") != 0) {
+    if ((numbytes = recv(fd,buf,MAXDATASIZE,0)) != 6 || strcmp(buf,"remote") != 0) {
 	printf("No se pudo establecer comunicacion con remote.\n");
 	i--;
 	continue;
       }
+    
+	
+    //printf("La conexion de la red al equipo esta: operativa\n");
       
-      //printf("La conexion de la red al equipo esta: operativa\n");
-      
-      for (k = 0; k < 3; k++){
-	numbytes = 1;
-	send(fd,comandos[k],strlen(comandos[k]),0);
-	while ((numbytes = recv(fd,buf,MAXDATASIZE,0)) >= 0){
+    for (k = 0; k < 3; k++){
+	 numbytes = 1;
+	 send(fd,comandos[k],strlen(comandos[k]),0);
+	 while ((numbytes = recv(fd,buf,MAXDATASIZE,0)) >= 0){
 	  if (numbytes == 0) break;
 	  buf[numbytes]='\0';
 	  //printf("+ buf %s +\n",buf);
