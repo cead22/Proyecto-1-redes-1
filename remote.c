@@ -15,7 +15,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <string.h> 
+#include <string.h>
+#include <errno.h> 
 
 /* numero de conexiones permitidad */
 #define MAXCON 5
@@ -35,15 +36,16 @@
     -1 en caso contrario
 
 */
-int permitido(char *comando, char *archivo) {
+
+int permitido(char *comando, char *archivo, int fd) {
 
   FILE *f;
   char linea[100];
 
   /* se abre el archivo */
   if ((f = fopen(archivo,"r")) == NULL) {
-    perror("Error al abrir archivo de comandos permitidos\n");
-    exit(-1);
+    //printf("Error al abrir archivo de comandos permitidos\n");
+    return -1;
   }
   
   /* se verifica exitencia del comando */
@@ -60,12 +62,12 @@ int permitido(char *comando, char *archivo) {
   /* comando no permitido */
   if(fclose(f) != 0)
     perror("Error al cerrar archivo de comandos permitidos\n");
-  return -1;
+  return 1;
 }
 
-int main(int argc, char *argv[]) {
 
-  int PORT;
+void servidor(char *comans, int PORT){
+
   int fd;
   int fd2;
   int estado;
@@ -77,29 +79,9 @@ int main(int argc, char *argv[]) {
   FILE *salida;
   char *cmd;
   char *s;
-  char *com;
   char buf[MAXDATASIZE];
   char out[MAXDATASIZE];
   pid_t pid;
-
-  /* Revision de llamada */
-  if (argc != 5) {
-    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>");
-    exit(EXIT_FAILURE);
-  }
-
-  if (strcmp(argv[1],"-p") == 0 && strcmp(argv[3],"-f") == 0) {
-    PORT = (int)atoi(argv[2]);
-    com = argv[4];
-  }
-  else if (strcmp(argv[1],"-f") == 0 && strcmp(argv[3],"-p") == 0) {
-    PORT = (int)atoi(argv[4]);
-    com = argv[2];
-  }
-  else {
-    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>");
-    exit(EXIT_FAILURE);
-  }
 
   /* Se crea el socket */
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1){  
@@ -115,7 +97,12 @@ int main(int argc, char *argv[]) {
    
   /* bind() */
   if(bind(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1) {
-    perror("Error en la funcion bind");
+    if (errno == EADDRINUSE){
+      fprintf(stderr, "Puerto %d ya usado, escoga otro.\n", PORT);
+    }
+    else{
+      perror("Error en la funcion bind");
+    }
     exit(EXIT_FAILURE);
   }    
 
@@ -143,7 +130,7 @@ int main(int argc, char *argv[]) {
       /* proceso hijo */
 
       if (send(fd2,"remote",6,0) == -1)
-	perror("Error send (1)");
+      	perror("Error send (1)");
 
       while(1){
  	if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
@@ -156,11 +143,16 @@ int main(int argc, char *argv[]) {
 	if (strcmp(buf,"\0") == 0) break;
 	
 	/* Se verifica que el comando esta permitido */
-	if (permitido((char *)&buf,com) == -1){
+	switch (permitido((char *)&buf,comans,fd2)){
+	case 1:
 	  /* comando no permitido */
 	  if (send(fd2,"fin_c",5,0) == -1)
 	    perror("Error send (2)");
 	  continue;
+	case -1:
+	  //perror("Error al abrir el archivo de comandos");
+	  break;
+	  //exit(EXIT_FAILURE);
 	}
 	
 	/* se ejecuta el comando se lee la salida 
@@ -180,4 +172,32 @@ int main(int argc, char *argv[]) {
       wait(&estado);
     }
   } 
+}
+
+int main(int argc, char *argv[]) {
+
+  int PORT;
+  char *comans;
+  
+  /* Revision de llamada */
+  if (argc != 5) {
+    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>");
+    exit(EXIT_FAILURE);
+  }
+
+  if (strcmp(argv[1],"-p") == 0 && strcmp(argv[3],"-f") == 0) {
+    PORT = (int)atoi(argv[2]);
+    comans = argv[4];
+  }
+  else if (strcmp(argv[1],"-f") == 0 && strcmp(argv[3],"-p") == 0) {
+    PORT = (int)atoi(argv[4]);
+    comans = argv[2];
+  }
+  else {
+    printf("Uso: ./remote -p <puerto> -f <comandosPermitidos>");
+    exit(EXIT_FAILURE);
+  }
+
+  servidor(comans, PORT);
+ 
 }
