@@ -1,9 +1,13 @@
 /*
- Remote.c
- Programa que se ejecutara localmente
- en las maquinas que se quieren supervisar
- para obtener informacion de las mismas y
- enviarla al proceso edolab
+ remote.c
+   servidor que se ejecutara en las maquinas
+   que se quieren supervisar y que enviaran
+   informacion de estas a edolab 
+ Parametros:
+   -f comandos: archivo de comandos que tienen
+   permiso para ser ejecutados en la maquina
+   -p puerto: puerto usado para escuchar comandos
+   enviados por el cliente edolab
 */
 
 #include <stdio.h>          
@@ -11,15 +15,56 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include "funciones.h" 
 #include <string.h> 
 
-#define MAXCON 5 /* numero de conexiones permitidad */
-#define MAXDATASIZE 100
+/* numero de conexiones permitidad */
+#define MAXCON 5
+
+/* maximo de bytes a transferir por el socket */
+#define MAXDATASIZE 300
+
+/*
+  funcion que verifica si un comando puede ser
+  ejecutado en la maquina
+  Parametros:
+    comando: nombre del comando a ejecutar.
+    archivo: nombre del archivo donde se
+    especifican los comandos permitidos.
+  Valor de Retorno:
+     0 si la ejecucion del comando esta permitida.
+    -1 en caso contrario
+
+*/
+int permitido(char *comando, char *archivo) {
+
+  FILE *f;
+  char linea[100];
+
+  /* se abre el archivo */
+  if ((f = fopen(archivo,"r")) == NULL) {
+    perror("Error al abrir archivo de comandos permitidos\n");
+    exit(-1);
+  }
+  
+  /* se verifica exitencia del comando */
+  while (!feof(f)){
+    fscanf(f,"%[^\n]%*[\n]",linea);
+    if (strcmp(comando,linea) == 0) {
+      /* comando permitido */
+      if(fclose(f) != 0)
+	perror("Error al cerrar archivo de comandos permitidos\n");
+      return 0;
+    }
+  }
+
+  /* comando no permitido */
+  if(fclose(f) != 0)
+    perror("Error al cerrar archivo de comandos permitidos\n");
+  return -1;
+}
 
 int main(int argc, char *argv[]) {
 
-  /* Variables */
   int PORT;
   int fd;
   int fd2;
@@ -58,7 +103,7 @@ int main(int argc, char *argv[]) {
 
   /* Se crea el socket */
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1){  
-    printf("Error en la funcion socket \n");
+    perror("Error en la funcion socket");
     exit(EXIT_FAILURE);
   }
 
@@ -68,36 +113,41 @@ int main(int argc, char *argv[]) {
   server.sin_addr.s_addr = INADDR_ANY; 
   bzero(&(server.sin_zero),8); 
    
-  /* A continuacion la llamada a bind() */
+  /* bind() */
   if(bind(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1) {
-    printf("Error en la funcion bind.\n");
+    perror("Error en la funcion bind");
     exit(EXIT_FAILURE);
   }    
 
   /* Se establece la cantidad de maquinas a aceptar*/
   if(listen(fd,MAXCON) == -1) {
-    printf("Error en la funcion listen.\n");
+    perror("Error en la funcion listen");
     exit(EXIT_FAILURE);
   }
 
   sin_size=sizeof(struct sockaddr_in);
 
   while(1){
+    /* se acepta la solicitud de conexion del cliente */
     if ((fd2 = accept(fd,(struct sockaddr *)&client,&sin_size)) == -1){
-      printf("Error en la funcion accept().\n");
+      perror("Error en la funcion accept()");
       exit(EXIT_FAILURE);
     }
     
+    /* se crea hijo para atender solicitud */
     if ((pid = fork()) < 0) {
-      printf("Error fork()");
+      perror("Error fork()");
       exit(EXIT_FAILURE);
     }
     if (pid == 0) {
       /* proceso hijo */
-      send(fd2,"remote",6,0);
+
+      if (send(fd2,"remote",6,0) == -1)
+	perror("Error send (1)");
+
       while(1){
  	if ((numbytes = recv(fd2,buf,MAXDATASIZE,0)) == -1){  
-	  printf("Error en la funcion recv.\n");
+	  perror("Error en la funcion recv");
 	  exit(EXIT_FAILURE);
 	}
 	
@@ -106,15 +156,22 @@ int main(int argc, char *argv[]) {
 	if (strcmp(buf,"\0") == 0) break;
 	
 	/* Se verifica que el comando esta permitido */
-	if (permitido((char *)&buf,com) == 0){
-	  send(fd2,"fin_c",5,0);
+	if (permitido((char *)&buf,com) == -1){
+	  /* comando no permitido */
+	  if (send(fd2,"fin_c",5,0) == -1)
+	    perror("Error send (2)");
+	  continue;
 	}
 	
+	/* se ejecuta el comando se lee la salida 
+	 y se envia al cliente */
 	salida = popen((char *)&buf,"r");
 	fscanf(salida,"%[^\n]%*[\n]", out);
-	send(fd2,strcat(out,"\n"),strlen(out)+1,0);
+	if (send(fd2,strcat(out,"\n"),strlen(out)+1,0) == -1)
+	  perror("Error send (3)");
 	pclose(salida);
-	send(fd2,"fin_c",5,0);
+	if (send(fd2,"fin_c",5,0) == -1)
+	  perror("Error send (4)");
       }
       exit(EXIT_SUCCESS);
     }
