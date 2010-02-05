@@ -40,15 +40,14 @@
   Valor de Retorno:
      0 si la ejecucion del comando esta permitida.
     -1 en caso contrario
-
 */
 
 /*********************************************************************************************/
 /* Funcion permitido: Se encarga de verificar que los comandos que el cliente solicita	     */
 /* ejecutar esten establecidos dentro de los que tiene permitidos.                           */
-/* Entrada: - comando que se desea ejercutar										         */
+/* Entrada: - comando que se desea ejercutar					             */
 /*          - archivo donde se almacena los comandos permitidos                              */	
-/* Salida: Valor entero que determina si el comando es o no permitido.						 */
+/* Salida: Valor entero que determina si el comando es o no permitido.			     */
 /*********************************************************************************************/
 int permitido(char *comando, char *archivo) {
 
@@ -164,7 +163,7 @@ int servidor(char *comans, int PORT){
 	if (strcmp(buf,"\0") == 0) break;
 	
 	/* Se verifica que el comando esta permitido */
-	switch (permitido((char *)&buf,comans){
+	switch (permitido((char *)&buf,comans)){
 	case 1:
 	  /* comando no permitido */
 	  if (send(fd2,"fin_c",5,0) == -1)
@@ -221,7 +220,7 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  if ((servidor(comans, PORT))== -1){
+  if ((servidor(comans, puerto))== -1){
 	exit(EXIT_FAILURE);
   }
   exit(EXIT_SUCCESS);

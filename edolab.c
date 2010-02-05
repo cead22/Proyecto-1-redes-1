@@ -46,9 +46,9 @@
 /*********************************************************************************************/
 /* Funcion verf_conex: Permite conocer el estado de la red del servidor. Para esto se        */
 /* hace uso de la llamada ping a traves de la funcion popen, luego la salida obtenida        */
-/* es devuelta.	         					                                                 */
+/* es devuelta.	         					                             */
 /* Entrada: Ip de la maquina que se desea verificar su estado de red.                        */
-/* Salida: Valor entero indicando conexion (1) o no conexion (-1).			                 */
+/* Salida: Valor entero indicando conexion (1) o no conexion (-1).			     */
 /*********************************************************************************************/
 int verf_conex(char * ip){
    char *comando_ping = malloc(sizeof(char)*26); 
@@ -104,7 +104,7 @@ int time_out(int fd){
   if (c == 0) {
     return -1;
   }
-  /* Se obtuvo un mensaje que aun falta revisar*/
+  /* Se obtuvo un mensaje que aun falta revisar */
   return 1;
   
 }
@@ -115,7 +115,7 @@ int time_out(int fd){
 /* maquinas especificadas, y obtener informacion sobre estas.                                */
 /* Entrada: - archivo con todas las maquinas con las que se desea establecer conexion        */
 /*          - puerto a traves del cual se pretende hacer la conexion                         */				   
-/* Reporte con las caracteristicas de la maquina 											 */
+/* Reporte con las caracteristicas de la maquina 					     */
 /*********************************************************************************************/
 int generar_reporte(FILE * maquinas, int PUERTO){
   
@@ -194,7 +194,20 @@ int generar_reporte(FILE * maquinas, int PUERTO){
 
     /* Se obtiene ip del servidor */
     ip = inet_ntoa(*((struct in_addr *)he->h_addr));
-    printf("Nombre: %s",he->h_name); 
+    if (!strcmp(he->h_name,ip)) {      
+      struct in_addr d_ip;
+      struct hostent *hp;
+      
+      inet_aton(ip, &d_ip);
+      //errx(1, "can't parse IP address %s", ip);
+      
+      if ((hp = gethostbyaddr((const void *)&d_ip,sizeof d_ip, AF_INET)) == NULL)
+	printf("Nombre: (no hay nombre asociado)");
+      printf ("Nombre: %s",hp->h_name);
+    }
+    else {
+      printf("Nombre: %s",he->h_name); 
+    }
     printf("\tIp: %s \n",ip); 
 
     if(connect(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){ 
@@ -233,8 +246,8 @@ int generar_reporte(FILE * maquinas, int PUERTO){
 	  /* Se imprimen los datos obtenidos */
 	  switch(k){
 	  case 0: // uptime
-	    sscanf(buf,"%*s %*s %s%*c",buf);
-	    buf[strlen(buf)-1] = '\0';
+	    sscanf(buf,"%*s %*s %[^,]%",buf);
+	    buf[strlen(buf)] = '\0';
 	    printf("El equipo esta operando desde hace: %s\n", buf); 
 	    break;
 	  case 1: // memoria
@@ -333,7 +346,3 @@ int main(int argc, char *argv[]) {
   }
   exit(EXIT_SUCCESS);
 }
-
-
-
-
